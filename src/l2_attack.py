@@ -23,7 +23,7 @@ class CarliniL2:
                  binary_search_steps = BINARY_SEARCH_STEPS, max_iterations = MAX_ITERATIONS,
                  abort_early = ABORT_EARLY, 
                  initial_const = INITIAL_CONST,
-                 boxmin = -0.5, boxmax = 0.5):
+                 boxmin = -0.5, boxmax = 0.5, x_window = 0, y_window = 0, window_size = -1):
         """
         The L_2 optimized attack. 
 
@@ -50,6 +50,8 @@ class CarliniL2:
         boxmin: Minimum pixel value (default -0.5).
         boxmax: Maximum pixel value (default 0.5).
         """
+        if window_size == -1:
+            window_size = model.image_size
 
         image_size, num_channels, num_labels = model.image_size, model.num_channels, model.num_labels
         self.sess = sess
@@ -66,10 +68,10 @@ class CarliniL2:
 
         self.I_KNOW_WHAT_I_AM_DOING_AND_WANT_TO_OVERRIDE_THE_PRESOFTMAX_CHECK = False
 
-        shape = (batch_size,image_size,image_size,num_channels)
+        shape = (batch_size, window_size, window_size, num_channels)
         
         # the variable we're going to optimize over
-        modifier = tf.Variable(np.zeros(shape,dtype=np.float32))
+        modifier = tf.Variable(np.zeros(shape, dtype=np.float32))                       #qui ridimensionare per fare porzione
 
         # these are variables to be more efficient in sending data to tf
         self.timg = tf.Variable(np.zeros(shape), dtype=tf.float32)
@@ -84,8 +86,18 @@ class CarliniL2:
         # the resulting image, tanh'd to keep bounded from boxmin to boxmax
         self.boxmul = (boxmax - boxmin) / 2.
         self.boxplus = (boxmin + boxmax) / 2.
-        self.newimg = tf.tanh(modifier + self.timg) * self.boxmul + self.boxplus
-        
+
+
+        ###################################################################### editing
+
+        mask_to_apply = tf.Variable(np.zeros((image_size, image_size, num_channels), dtype=np.float32))
+        tf.function(self.join_matrices(image_size, mask_to_apply, modifier, num_channels, x_window, y_window))
+        self.newimg = tf.tanh(mask_to_apply + self.timg) * self.boxmul + self.boxplus
+
+        ###################################################################### editing
+
+
+
         # prediction BEFORE-SOFTMAX of the model
         self.output = model.predict(self.newimg)
         
@@ -122,6 +134,12 @@ class CarliniL2:
         self.setup.append(self.const.assign(self.assign_const))
         
         self.init = tf.variables_initializer(var_list=[modifier]+new_vars)
+
+    def join_matrices(self, image_size, mask_to_apply, modifier, num_channels, x_window, y_window):
+        for i in range(x_window, image_size):
+            for j in range(y_window, image_size):
+                for k in range(0, num_channels):
+                    mask_to_apply[i][j][k] = modifier[i - x_window][j - y_window][k]
 
     def attack(self, imgs, targets):
         """

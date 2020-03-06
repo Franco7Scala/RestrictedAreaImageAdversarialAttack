@@ -8,13 +8,12 @@
 
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten
-from keras.layers import Conv2D, MaxPooling2D
+from keras import layers
 from keras.optimizers import SGD
 
 import tensorflow as tf
-from setup_mnist import MNIST
-from setup_cifar import CIFAR
+from src.setup_mnist import MNIST
+from src.setup_cifar import CIFAR
 import os
 
 def train(data, file_name, params, num_epochs=50, batch_size=128, train_temp=1, init=None):
@@ -25,26 +24,26 @@ def train(data, file_name, params, num_epochs=50, batch_size=128, train_temp=1, 
 
     print(data.train_data.shape)
     
-    model.add(Conv2D(params[0], (3, 3),
+    model.add(layers.Conv2D(params[0], (3, 3),
                             input_shape=data.train_data.shape[1:]))
-    model.add(Activation('relu'))
-    model.add(Conv2D(params[1], (3, 3)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(layers.Activation('relu'))
+    model.add(layers.Conv2D(params[1], (3, 3)))
+    model.add(layers.Activation('relu'))
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
 
-    model.add(Conv2D(params[2], (3, 3)))
-    model.add(Activation('relu'))
-    model.add(Conv2D(params[3], (3, 3)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(layers.Conv2D(params[2], (3, 3)))
+    model.add(layers.Activation('relu'))
+    model.add(layers.Conv2D(params[3], (3, 3)))
+    model.add(layers.Activation('relu'))
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
 
-    model.add(Flatten())
-    model.add(Dense(params[4]))
-    model.add(Activation('relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(params[5]))
-    model.add(Activation('relu'))
-    model.add(Dense(10))
+    model.add(layers.Flatten())
+    model.add(layers.Dense(params[4]))
+    model.add(layers.Activation('relu'))
+    model.add(layers.Dropout(0.5))
+    model.add(layers.Dense(params[5]))
+    model.add(layers.Activation('relu'))
+    model.add(layers.Dense(10))
     
     if init != None:
         model.load_weights(init)
@@ -89,7 +88,7 @@ def train_distillation(data, file_name, params, num_epochs=50, batch_size=128, t
 
     # evaluate the labels at temperature t
     predicted = teacher.predict(data.train_data)
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         y = sess.run(tf.nn.softmax(predicted/train_temp))
         print(y)
         data.train_labels = y
