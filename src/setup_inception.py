@@ -44,10 +44,11 @@ import re
 import sys
 import tarfile
 import scipy.misc
+import imageio
 
 import numpy as np
 from six.moves import urllib
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -184,7 +185,7 @@ def run_inference_on_image(image):
             input_map={'DecodeJpeg:0': tf.reshape(img, ((299, 299, 3)))},
             return_elements=['softmax/logits:0'])
 
-        dat = scipy.misc.imresize(scipy.misc.imread(image), (299, 299))
+        dat = scipy.misc.imresize(imageio.imread(image), (299, 299))
         predictions = sess.run(softmax_tensor,
                                {img: dat})
 

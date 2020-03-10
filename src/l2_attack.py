@@ -6,7 +6,7 @@
 ## contained in the LICENCE file in this directory.
 
 import sys
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 
 BINARY_SEARCH_STEPS = 9  # number of times to adjust the constant with binary search
@@ -90,8 +90,18 @@ class CarliniL2:
 
         ###################################################################### editing
 
-        mask_to_apply = tf.Variable(np.zeros((image_size, image_size, num_channels), dtype=np.float32))
-        tf.function(self.join_matrices(image_size, mask_to_apply, modifier, num_channels, x_window, y_window))
+        mask = tf.zeros((batch_size, image_size, image_size, num_channels), tf.float32)
+        # Get input shapes
+        modifier_shape = tf.shape(modifier)
+        mask_shape = tf.shape(mask)
+        # Make indices grid
+        oo, ii, jj, kk = tf.meshgrid(tf.range(modifier_shape[0]), tf.range(modifier_shape[1]), tf.range(modifier_shape[2]), tf.range(modifier_shape[3]), indexing='ij')
+        # Shift indices
+        ii += y_window
+        jj += x_window
+        # Scatter update
+        mask_to_apply = tf.tensor_scatter_nd_update(mask, tf.stack([oo, ii, jj, kk], axis=-1), modifier)
+
         self.newimg = tf.tanh(mask_to_apply + self.timg) * self.boxmul + self.boxplus
 
         ###################################################################### editing
@@ -133,13 +143,7 @@ class CarliniL2:
         self.setup.append(self.tlab.assign(self.assign_tlab))
         self.setup.append(self.const.assign(self.assign_const))
         
-        self.init = tf.variables_initializer(var_list=[modifier]+new_vars)
-
-    def join_matrices(self, image_size, mask_to_apply, modifier, num_channels, x_window, y_window):
-        for i in range(x_window, image_size):
-            for j in range(y_window, image_size):
-                for k in range(0, num_channels):
-                    mask_to_apply[i][j][k] = modifier[i - x_window][j - y_window][k]
+        self.init = tf.variables_initializer(var_list=[mask]+new_vars)
 
     def attack(self, imgs, targets):
         """
